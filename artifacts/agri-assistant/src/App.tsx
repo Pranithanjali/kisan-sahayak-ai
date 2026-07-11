@@ -2,26 +2,80 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/contexts/auth";
+import { ThemeProvider } from "@/contexts/theme";
+import Header from "@/components/layout/Header";
 import NotFound from "@/pages/not-found";
+import HomePage from "@/pages/home";
+import ChatPage from "@/pages/chat";
+import LoginPage from "@/pages/login";
+import RegisterPage from "@/pages/register";
+import HistoryPage from "@/pages/history";
+import FavoritesPage from "@/pages/favorites";
+import FaqPage from "@/pages/faq";
+import MarketPage from "@/pages/market";
+import SettingsPage from "@/pages/settings";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        if ((error as { status?: number })?.status === 401) return false;
+        if ((error as { status?: number })?.status === 404) return false;
+        return failureCount < 2;
+      },
+      staleTime: 30 * 1000,
+    },
+  },
+});
 
-function Home() {
-  return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Replit Agent is building...</h1>
-        <p className="mt-2 text-sm text-gray-600">Your app will appear here once it's ready.</p>
-      </div>
-    </div>
-  );
+function isChatRoute(path: string) {
+  return path === "/chat" || path.startsWith("/chat/");
 }
 
-function Router() {
+function AppLayout() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
-      <Route component={NotFound} />
+      <Route path="/" component={HomePage} />
+      <Route path="/chat">
+        {() => (
+          <div className="flex h-screen flex-col">
+            <Header />
+            <div className="flex flex-1 overflow-hidden">
+              <ChatPage />
+            </div>
+          </div>
+        )}
+      </Route>
+      <Route path="/chat/:id">
+        {(params) => (
+          <div className="flex h-screen flex-col">
+            <Header />
+            <div className="flex flex-1 overflow-hidden">
+              <ChatPage params={{ id: params.id }} />
+            </div>
+          </div>
+        )}
+      </Route>
+      <Route>
+        {() => (
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <main className="flex-1">
+              <Switch>
+                <Route path="/login" component={LoginPage} />
+                <Route path="/register" component={RegisterPage} />
+                <Route path="/history" component={HistoryPage} />
+                <Route path="/favorites" component={FavoritesPage} />
+                <Route path="/faq" component={FaqPage} />
+                <Route path="/market" component={MarketPage} />
+                <Route path="/settings" component={SettingsPage} />
+                <Route component={NotFound} />
+              </Switch>
+            </main>
+          </div>
+        )}
+      </Route>
     </Switch>
   );
 }
@@ -29,12 +83,16 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AppLayout />
+            </WouterRouter>
+            <Toaster />
+          </TooltipProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }
