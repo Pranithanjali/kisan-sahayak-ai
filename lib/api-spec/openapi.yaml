@@ -3,20 +3,29 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: FarmAI Agriculture Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: chat
+    description: Chat and conversation operations
+  - name: agriculture
+    description: Agricultural data
+  - name: faq
+    description: Frequently asked questions
+  - name: feedback
+    description: User feedback
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +33,418 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register a new farmer account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRegisterInput"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: loginUser
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserLoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logoutUser
+      tags: [auth]
+      summary: Logout current session
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/me/language:
+    patch:
+      operationId: updateUserLanguage
+      tags: [auth]
+      summary: Update user language preference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LanguageInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [chat]
+      summary: List all conversations for current user
+      responses:
+        "200":
+          description: List of conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+    post:
+      operationId: createConversation
+      tags: [chat]
+      summary: Create a new conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationInput"
+      responses:
+        "201":
+          description: Created conversation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}:
+    get:
+      operationId: getConversation
+      tags: [chat]
+      summary: Get a specific conversation with messages
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Conversation with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationWithMessages"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      operationId: deleteConversation
+      tags: [chat]
+      summary: Delete a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /conversations/{id}/messages:
+    post:
+      operationId: sendMessage
+      tags: [chat]
+      summary: Send a message and get AI response
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "200":
+          description: AI response message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /messages/{id}/favorite:
+    patch:
+      operationId: toggleFavoriteMessage
+      tags: [chat]
+      summary: Toggle favorite on a message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated message
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /chat/favorites:
+    get:
+      operationId: listFavoriteMessages
+      tags: [chat]
+      summary: List all favorited messages for current user
+      responses:
+        "200":
+          description: Favorited messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FavoriteMessage"
+
+  /chat/guest:
+    post:
+      operationId: sendGuestMessage
+      tags: [chat]
+      summary: Send a message as guest (no auth required)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GuestMessageInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GuestResponse"
+
+  /crops:
+    get:
+      operationId: listCrops
+      tags: [agriculture]
+      summary: List all crops
+      parameters:
+        - name: season
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of crops
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Crop"
+
+  /crops/{id}:
+    get:
+      operationId: getCrop
+      tags: [agriculture]
+      summary: Get a specific crop
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Crop details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Crop"
+
+  /diseases:
+    get:
+      operationId: listDiseases
+      tags: [agriculture]
+      summary: List all plant diseases
+      responses:
+        "200":
+          description: List of diseases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Disease"
+
+  /diseases/{id}:
+    get:
+      operationId: getDisease
+      tags: [agriculture]
+      summary: Get a specific disease
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Disease details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Disease"
+
+  /market-prices:
+    get:
+      operationId: listMarketPrices
+      tags: [agriculture]
+      summary: Get current market prices
+      responses:
+        "200":
+          description: Market prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketPrice"
+
+  /government-schemes:
+    get:
+      operationId: listGovernmentSchemes
+      tags: [agriculture]
+      summary: List government schemes for farmers
+      responses:
+        "200":
+          description: Government schemes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/GovernmentScheme"
+
+  /seasonal-tips:
+    get:
+      operationId: listSeasonalTips
+      tags: [agriculture]
+      summary: Get seasonal farming tips and recommendations
+      responses:
+        "200":
+          description: Seasonal tips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SeasonalTip"
+
+  /faq:
+    get:
+      operationId: listFaq
+      tags: [faq]
+      summary: Get frequently asked questions
+      responses:
+        "200":
+          description: FAQ list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FaqItem"
+
+  /feedback:
+    post:
+      operationId: submitFeedback
+      tags: [feedback]
+      summary: Submit feedback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackInput"
+      responses:
+        "201":
+          description: Feedback submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +455,396 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        language:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - name
+        - email
+        - language
+        - createdAt
+
+    UserRegisterInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        email:
+          type: string
+        password:
+          type: string
+          minLength: 6
+        language:
+          type: string
+      required:
+        - name
+        - email
+        - password
+
+    UserLoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+      required:
+        - email
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        message:
+          type: string
+      required:
+        - user
+        - message
+
+    LanguageInput:
+      type: object
+      properties:
+        language:
+          type: string
+      required:
+        - language
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        language:
+          type: string
+        messageCount:
+          type: integer
+        lastMessageAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+      required:
+        - id
+        - title
+        - language
+        - messageCount
+        - createdAt
+
+    ConversationInput:
+      type: object
+      properties:
+        title:
+          type: string
+        language:
+          type: string
+      required:
+        - title
+
+    ConversationWithMessages:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        language:
+          type: string
+        createdAt:
+          type: string
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+      required:
+        - id
+        - title
+        - language
+        - createdAt
+        - messages
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+        conversationId:
+          type: integer
+        role:
+          type: string
+        content:
+          type: string
+        language:
+          type: string
+        isFavorited:
+          type: boolean
+        createdAt:
+          type: string
+      required:
+        - id
+        - conversationId
+        - role
+        - content
+        - language
+        - isFavorited
+        - createdAt
+
+    MessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+        language:
+          type: string
+      required:
+        - content
+
+    FavoriteMessage:
+      type: object
+      properties:
+        id:
+          type: integer
+        content:
+          type: string
+        role:
+          type: string
+        conversationId:
+          type: integer
+        conversationTitle:
+          type: string
+        createdAt:
+          type: string
+      required:
+        - id
+        - content
+        - role
+        - conversationId
+        - conversationTitle
+        - createdAt
+
+    GuestMessageInput:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+        language:
+          type: string
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/GuestHistoryItem"
+      required:
+        - content
+
+    GuestHistoryItem:
+      type: object
+      properties:
+        role:
+          type: string
+        content:
+          type: string
+      required:
+        - role
+        - content
+
+    GuestResponse:
+      type: object
+      properties:
+        content:
+          type: string
+        language:
+          type: string
+      required:
+        - content
+        - language
+
+    Crop:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameTelugu:
+          type: ["string", "null"]
+        season:
+          type: string
+        growingConditions:
+          type: string
+        soilType:
+          type: string
+        waterRequirement:
+          type: string
+        harvestPeriod:
+          type: string
+        description:
+          type: string
+      required:
+        - id
+        - name
+        - season
+        - growingConditions
+        - soilType
+        - waterRequirement
+        - harvestPeriod
+        - description
+
+    Disease:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        nameTelugu:
+          type: ["string", "null"]
+        affectedCrops:
+          type: string
+        symptoms:
+          type: string
+        causes:
+          type: string
+        treatment:
+          type: string
+        prevention:
+          type: string
+      required:
+        - id
+        - name
+        - affectedCrops
+        - symptoms
+        - causes
+        - treatment
+        - prevention
+
+    MarketPrice:
+      type: object
+      properties:
+        id:
+          type: integer
+        cropName:
+          type: string
+        price:
+          type: number
+        unit:
+          type: string
+        market:
+          type: string
+        date:
+          type: string
+      required:
+        - id
+        - cropName
+        - price
+        - unit
+        - market
+        - date
+
+    GovernmentScheme:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        eligibility:
+          type: string
+        benefits:
+          type: string
+        applicationUrl:
+          type: ["string", "null"]
+      required:
+        - id
+        - name
+        - description
+        - eligibility
+        - benefits
+
+    SeasonalTip:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        season:
+          type: string
+        category:
+          type: string
+      required:
+        - id
+        - title
+        - content
+        - season
+        - category
+
+    FaqItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        question:
+          type: string
+        questionTelugu:
+          type: ["string", "null"]
+        answer:
+          type: string
+        answerTelugu:
+          type: ["string", "null"]
+        category:
+          type: string
+      required:
+        - id
+        - question
+        - answer
+        - category
+
+    FeedbackInput:
+      type: object
+      properties:
+        rating:
+          type: integer
+        comment:
+          type: string
+        messageId:
+          type: ["integer", "null"]
+      required:
+        - rating
