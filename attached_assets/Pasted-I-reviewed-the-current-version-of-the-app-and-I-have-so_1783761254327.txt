@@ -1,0 +1,125 @@
+I reviewed the current version of the app and I have some improvements and issues that need to be fixed.
+
+1. AI Chat Response Issue (Most Important)
+
+The chat interface is working, but the AI is not giving proper answers to agriculture questions.
+
+Please debug and fix:
+
+Check the OpenAI API integration.
+Verify that user questions are reaching the AI model.
+Fix response generation and display issues.
+Add proper error handling.
+
+Test with questions like:
+
+"How to grow lychee?"
+"Which fertilizer is best for rice?"
+"How to prevent tomato plant diseases?"
+
+The AI should provide accurate agriculture-related answers including:
+
+Growing methods
+Soil requirements
+Water requirements
+Fertilizers
+Diseases and treatments
+Harvesting information
+2. Improve Data Accuracy
+
+The current information (especially market prices and farming tips) should not be static or inaccurate.
+
+Please:
+
+Avoid hardcoded sample data.
+Use a proper data source/API wherever possible.
+Show the last updated date/time for dynamic information.
+Improve the reliability of agriculture recommendations.
+3. Fix Seasonal Tips and FAQ Sections
+
+Current issues:
+
+Seasonal tips cards are showing only partial content.
+FAQ items are not opening properly.
+
+Please fix:
+
+Expand/collapse functionality.
+Full content visibility.
+Better UI interaction.
+4. Add Proper Multilingual Support
+
+Currently, the app is mainly in English.
+
+Add support for:
+
+Telugu
+Hindi
+English
+
+Requirements:
+
+Add a language selection option.
+When a user selects Telugu, the complete UI should change to Telugu.
+When a user selects Hindi, the complete UI should change to Hindi.
+AI responses should also be generated in the selected language.
+
+Translate:
+
+Homepage
+Buttons
+Navigation
+Login/Register pages
+Chat interface
+FAQs
+Farming tips
+Error messages
+
+The app should be comfortable for farmers who may not understand English.
+
+5. Change App Name and Branding
+
+Change the current application name:
+
+Krishi AI → Kisan Sahayak AI
+
+Update:
+
+Logo text
+Website title
+Header
+Landing page
+About section
+Footer
+
+Make the branding suitable for an Indian multilingual farmer assistant.
+
+6. Improve Farmer-Friendly UI
+
+Improve the current UI:
+
+Make it more mobile-friendly.
+Use larger readable text.
+Make navigation simpler.
+Improve card design and spacing.
+Add agriculture-related icons.
+Make it easier for farmers to use.
+
+Add if possible:
+
+Voice input for asking questions.
+Text-to-speech for AI answers.
+Loading animation while generating responses.
+7. Database Improvement
+
+Currently the app does not have a proper data management system.
+
+Please analyze the current storage method and upgrade it if needed:
+
+Use a proper database instead of static files.
+Store user details.
+Store chat history.
+Store agriculture knowledge.
+Store user language preference.
+
+Please implement these improvements while keeping the existing working features. After making changes, explain what was updated and how the new features work.
