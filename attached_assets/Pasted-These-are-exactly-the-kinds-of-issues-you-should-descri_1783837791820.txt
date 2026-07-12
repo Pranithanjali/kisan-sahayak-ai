@@ -1,0 +1,87 @@
+These are exactly the kinds of issues you should describe clearly to Replit. Here's a focused follow-up prompt you can paste:
+
+---
+
+**Prompt:**
+
+I tested the application and found several critical issues that need to be fixed. Please debug the existing project instead of rebuilding it.
+
+### 1. AI Chat Is Not Working (Highest Priority)
+
+This is the biggest issue.
+
+Whenever I ask any question, the application responds with:
+
+> "AI server is currently busy. Please try again in a moment. You can check FAQs or market prices for information in the meantime."
+
+Instead of generating an AI response.
+
+Please:
+
+* Debug the complete AI chat workflow.
+* Verify the OpenAI API key is loaded correctly.
+* Check the backend API connection.
+* Verify all API requests are reaching the AI service.
+* Fix any errors causing the "server busy" message.
+* Display meaningful error messages if the API actually fails.
+* Ensure agriculture questions receive real AI-generated answers.
+
+---
+
+### 2. Voice Input Is Not Working
+
+The microphone feature is not functioning correctly.
+
+Current issues:
+
+* I cannot tell whether the microphone is listening.
+* My speech is not converted into text.
+* The recognized text is not inserted into the chat input.
+* The message cannot be sent using voice.
+
+Please implement a reliable voice input experience similar to ChatGPT:
+
+* Show a clear listening indicator.
+* Record speech properly.
+* Convert speech to text.
+* Display the recognized text in the input box.
+* Allow editing before sending.
+* Send the message to the AI after confirmation.
+* Show appropriate error messages if microphone permission is denied.
+
+---
+
+### 3. AI Response Quality
+
+Once the AI chat is working:
+
+* Ensure responses are agriculture-specific.
+* Provide accurate and detailed farming guidance.
+* Support English, Telugu, and Hindi.
+* Respond in the language selected by the user.
+
+---
+
+### 4. General Debugging
+
+Please check the application logs and identify why these features are failing.
+
+Fix:
+
+* API connection issues.
+* Backend errors.
+* Frontend request handling.
+* Response rendering.
+* Voice recognition integration.
+
+Do not use placeholder responses. The AI assistant should generate real responses from the configured AI model.
+
+After fixing everything, explain:
+
+* What caused these issues.
+* What changes you made.
+* How to test the fixes.
+
+---
+
+This prompt focuses specifically on the problems you're seeing: the AI chat returning "server busy" and the microphone not working. Those are likely backend or integration issues, so asking Replit to debug them directly is the right approach.
