@@ -68,7 +68,7 @@ async function getRelevantContext(query: string): Promise<string> {
   if (allCrops.length > 0) {
     context += "\nCROPS:\n";
     for (const crop of allCrops) {
-      context += `- ${crop.name}${crop.nameTelugu ? ` (${crop.nameTelugu})` : ""}: Season: ${crop.season}, Soil: ${crop.soilType}, Water: ${crop.waterRequirement}, Fertilizer: ${crop.fertilizerRequirements ?? "N/A"}, Harvest: ${crop.harvestPeriod}\n`;
+      context += `- ${crop.name}${crop.nameTelugu ? ` (${crop.nameTelugu})` : ""}: Season: ${crop.season}, Soil: ${crop.soilType}, Water: ${crop.waterRequirement}, Growing: ${crop.growingConditions}, Harvest: ${crop.harvestPeriod}\n`;
     }
   }
 
