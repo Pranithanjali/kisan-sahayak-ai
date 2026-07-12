@@ -127,21 +127,19 @@ export async function generateAIResponse(
       "I'm sorry, I couldn't generate a response. Please try again."
     );
   } catch (error: any) {
-    if (error?.status === 429) {
-      if (language === "hi") {
-        return "AI सेवा अभी व्यस्त है। कृपया कुछ देर बाद पुनः प्रयास करें। अधिक जानकारी के लिए FAQ देखें या बाजार भाव पेज पर जाएं।";
-      }
-      if (language === "te") {
-        return "AI సేవ ప్రస్తుతం బిజీగా ఉంది. దయచేసి కొద్దిసేపు తర్వాత మళ్ళీ ప్రయత్నించండి. మరిన్ని వివరాల కోసం FAQ చూడండి లేదా మార్కెట్ ధరల పేజీకి వెళ్ళండి.";
-      }
-      return "AI service is currently busy. Please try again in a moment. You can check the FAQ or Market Prices page for information in the meantime.";
+    console.error("[AI] OpenAI error:", JSON.stringify({
+      status: error?.status,
+      code: error?.code,
+      message: error?.message,
+      type: error?.type,
+    }));
+    if (error?.status === 429 || error?.code === "insufficient_quota") {
+      if (language === "hi") return "AI सेवा अभी व्यस्त है। कृपया कुछ देर बाद पुनः प्रयास करें।";
+      if (language === "te") return "AI సేవ ప్రస్తుతం బిజీగా ఉంది. దయచేసి కొద్దిసేపు తర్వాత మళ్ళీ ప్రయత్నించండి.";
+      return "AI service is currently busy. Please try again in a moment.";
     }
-    if (language === "hi") {
-      return "क्षमा करें, आपके अनुरोध को संसाधित करने में समस्या हुई। कृपया पुनः प्रयास करें।";
-    }
-    if (language === "te") {
-      return "క్షమించండి, మీ అభ్యర్థనను ప్రాసెస్ చేయడంలో సమస్య ఉంది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
-    }
-    return "Sorry, there was a problem processing your request. Please try again.";
+    if (language === "hi") return "क्षमा करें, आपके अनुरोध को संसाधित करने में समस्या हुई। कृपया पुनः प्रयास करें।";
+    if (language === "te") return "క్షమించండి, మీ అభ్యర్థనను ప్రాసెస్ చేయడంలో సమస్య ఉంది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
+    return `Error: ${error?.message ?? "Unknown error"}. Please try again.`;
   }
 }
