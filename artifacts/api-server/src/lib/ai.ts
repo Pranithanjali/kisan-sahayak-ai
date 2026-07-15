@@ -1,5 +1,12 @@
-import { openai } from "@workspace/integrations-openai-ai-server";
 import { db, crops, diseases, seasonalTips } from "@workspace/db";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_MODEL = "gemini-2.0-flash";
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+if (!GEMINI_API_KEY) {
+  console.error("[AI] GEMINI_API_KEY is not set. AI responses will fail.");
+}
 
 const SYSTEM_PROMPT_EN = `You are Kisan Sahayak AI, an expert agriculture assistant helping Indian farmers. You have deep knowledge of:
 - Crops, seeds, fertilizers, pesticides, and plant diseases
@@ -56,7 +63,7 @@ const SYSTEM_PROMPT_TE = `మీరు కిసాన్ సహాయక్ AI,
 - రైతులు అర్థం చేసుకోగలిగే సరళమైన భాష వాడండి
 - జాబితా చేసేటప్పుడు బుల్లెట్ పాయింట్లు లేదా నంబర్ చేసిన దశలు వాడండి`;
 
-async function getRelevantContext(query: string): Promise<string> {
+async function getRelevantContext(): Promise<string> {
   const allCrops = await db.select().from(crops).limit(20);
   const allDiseases = await db.select().from(diseases).limit(10);
   const tips = await db.select().from(seasonalTips).limit(5);
@@ -94,52 +101,86 @@ export interface ChatMessage {
   content: string;
 }
 
+interface GeminiPart {
+  text: string;
+}
+interface GeminiContent {
+  role: "user" | "model";
+  parts: GeminiPart[];
+}
+
 export async function generateAIResponse(
   userMessage: string,
   history: ChatMessage[],
   language: string = "en"
 ): Promise<string> {
-  const context = await getRelevantContext(userMessage);
+  if (!GEMINI_API_KEY) {
+    return "AI is not configured. Please set the GEMINI_API_KEY environment variable.";
+  }
+
+  const context = await getRelevantContext();
   const systemPrompt =
-    language === "te"
-      ? SYSTEM_PROMPT_TE
-      : language === "hi"
-      ? SYSTEM_PROMPT_HI
-      : SYSTEM_PROMPT_EN;
+    language === "te" ? SYSTEM_PROMPT_TE
+    : language === "hi" ? SYSTEM_PROMPT_HI
+    : SYSTEM_PROMPT_EN;
 
   const fullSystem = context ? `${systemPrompt}\n\n${context}` : systemPrompt;
 
-  const messages: ChatMessage[] = [
-    { role: "system", content: fullSystem },
-    ...history.slice(-10),
-    { role: "user", content: userMessage },
-  ];
+  const contents: GeminiContent[] = history
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .slice(-10)
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+  contents.push({ role: "user", parts: [{ text: userMessage }] });
+
+  const body = {
+    system_instruction: { parts: [{ text: fullSystem }] },
+    contents,
+    generationConfig: {
+      maxOutputTokens: 1500,
+      temperature: 0.7,
+    },
+  };
 
   try {
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      max_tokens: 1500,
-      messages,
+    const res = await fetch(GEMINI_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
 
-    return (
-      response.choices[0]?.message?.content ??
-      "I'm sorry, I couldn't generate a response. Please try again."
-    );
-  } catch (error: any) {
-    console.error("[AI] OpenAI error:", JSON.stringify({
-      status: error?.status,
-      code: error?.code,
-      message: error?.message,
-      type: error?.type,
-    }));
-    if (error?.status === 429 || error?.code === "insufficient_quota") {
-      if (language === "hi") return "AI सेवा अभी व्यस्त है। कृपया कुछ देर बाद पुनः प्रयास करें।";
-      if (language === "te") return "AI సేవ ప్రస్తుతం బిజీగా ఉంది. దయచేసి కొద్దిసేపు తర్వాత మళ్ళీ ప్రయత్నించండి.";
-      return "AI service is currently busy. Please try again in a moment.";
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as any;
+      console.error("[AI] Gemini API error:", res.status, JSON.stringify(err));
+      if (res.status === 429) {
+        if (language === "hi") return "AI सेवा अभी व्यस्त है। कृपया कुछ देर बाद पुनः प्रयास करें।";
+        if (language === "te") return "AI సేవ ప్రస్తుతం బిజీగా ఉంది. దయచేసి కొద్దిసేపు తర్వాత మళ్ళీ ప్రయత్నించండి.";
+        return "AI service is busy. Please try again in a moment.";
+      }
+      if (language === "hi") return `त्रुटि: ${err?.error?.message ?? res.status}। कृपया पुनः प्रयास करें।`;
+      if (language === "te") return `లోపం: ${err?.error?.message ?? res.status}. దయచేసి మళ్ళీ ప్రయత్నించండి.`;
+      return `Error from AI (${res.status}): ${err?.error?.message ?? "Unknown error"}`;
     }
-    if (language === "hi") return "क्षमा करें, आपके अनुरोध को संसाधित करने में समस्या हुई। कृपया पुनः प्रयास करें।";
-    if (language === "te") return "క్షమించండి, మీ అభ్యర్థనను ప్రాసెస్ చేయడంలో సమస్య ఉంది. దయచేసి మళ్ళీ ప్రయత్నించండి.";
-    return `Error: ${error?.message ?? "Unknown error"}. Please try again.`;
+
+    const data = await res.json() as any;
+    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      const reason = data?.candidates?.[0]?.finishReason;
+      console.error("[AI] Empty response, finishReason:", reason, JSON.stringify(data));
+      if (language === "hi") return "क्षमा करें, उत्तर नहीं मिला। कृपया दोबारा पूछें।";
+      if (language === "te") return "క్షమించండి, సమాధానం రాలేదు. దయచేసి మళ్ళీ అడగండి.";
+      return "Sorry, no response was generated. Please try again.";
+    }
+
+    return text;
+  } catch (error: any) {
+    console.error("[AI] Fetch error:", error?.message);
+    if (language === "hi") return "क्षमा करें, AI से संपर्क नहीं हो सका। कृपया पुनः प्रयास करें।";
+    if (language === "te") return "క్షమించండి, AI తో కనెక్ట్ కాలేదు. దయచేసి మళ్ళీ ప్రయత్నించండి.";
+    return `Connection error: ${error?.message ?? "Unknown"}. Please try again.`;
   }
 }
