@@ -1,0 +1,82 @@
+he application has improved significantly. Thank you for the fixes. However, before considering this project complete, I want you to perform a final quality assurance review.
+
+1. Verify Voice Input End-to-End
+
+The microphone animation appears, but during my testing it still does not reliably capture my speech.
+
+Please do not assume it works because the code was updated.
+
+Verify the complete workflow:
+
+Microphone permission request.
+Speech recognition starts correctly.
+Spoken words are converted into text.
+Interim transcript appears while speaking.
+Final transcript is inserted into the chat input.
+User can edit the recognized text.
+The message is sent successfully.
+The AI generates a response.
+
+If there are browser limitations, clearly detect them and show an appropriate message to the user.
+
+2. Verify Markdown Rendering
+
+I want all AI responses to be clean and professional.
+
+Ensure:
+
+Headings are bold.
+Lists render correctly.
+Numbered steps display properly.
+Paragraph spacing is consistent.
+No raw Markdown symbols (**, ##, etc.) appear anywhere in the chat.
+3. Improve Chat Experience
+
+Make the chat feel polished.
+
+Add:
+
+Relevant emojis only where appropriate (🌱 🌾 💧 🌿 ☀️ 🐛).
+Better spacing between sections.
+Attractive formatting similar to modern AI assistants.
+Smooth scrolling.
+Typing indicator while waiting for AI responses.
+4. Perform a Full QA Test
+
+Please test every feature yourself before considering the project complete.
+
+Verify:
+
+AI responses
+Voice input
+Login
+Registration
+Guest mode
+Chat history
+Language switching (English, Hindi, Telugu)
+Market prices
+Seasonal tips
+FAQ
+Mobile responsiveness
+Dark mode
+Error handling
+
+Fix any remaining bugs or inconsistencies.
+
+5. Final Review
+
+Review the application like a senior software engineer.
+
+Identify:
+
+UI inconsistencies
+Performance issues
+Accessibility improvements
+Broken workflows
+Unused code
+Security concerns
+Responsiveness issues
+
+Fix everything necessary to make this project suitable for an internship portfolio.
+
+Finally, provide a checklist of every feature tested and whether it passed or failed.

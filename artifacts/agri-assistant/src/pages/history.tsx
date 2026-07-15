@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   useListConversations,
@@ -37,9 +37,16 @@ export default function HistoryPage() {
   });
   const deleteMutation = useDeleteConversation();
 
-  if (!authLoading && !user) {
-    navigate("/login");
-    return null;
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/login");
+  }, [authLoading, user, navigate]);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
   const filtered = conversations.filter((c) =>
@@ -48,6 +55,7 @@ export default function HistoryPage() {
 
   function handleDelete(id: number, e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     deleteMutation.mutate({ id }, {
       onSuccess() {
         queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
@@ -72,7 +80,7 @@ export default function HistoryPage() {
         placeholder={lang === "hi" ? "बातचीत खोजें..." : lang === "te" ? "సంభాషణలు వెతకండి..." : "Search conversations..."}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="mb-6 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
+        className="mb-6 w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
       />
 
       {isLoading ? (
@@ -83,6 +91,11 @@ export default function HistoryPage() {
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-20 text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-muted">
+            <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-muted-foreground" stroke="currentColor" strokeWidth="1.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
           <p className="text-muted-foreground">{t(lang as Lang, "historyEmpty")}</p>
           <Link href="/chat">
             <Button variant="outline" className="mt-4">{t(lang as Lang, "chatNewChat")}</Button>
@@ -102,7 +115,7 @@ export default function HistoryPage() {
                 </div>
                 <button
                   onClick={(e) => handleDelete(conv.id, e)}
-                  className="ml-3 hidden text-muted-foreground hover:text-destructive group-hover:block transition-colors"
+                  className="ml-3 hidden shrink-0 text-muted-foreground hover:text-destructive group-hover:block transition-colors p-1 rounded"
                   aria-label="Delete conversation"
                 >
                   <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" stroke="currentColor" strokeWidth="2">

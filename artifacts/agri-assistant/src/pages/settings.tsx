@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
   useUpdateUserLanguage,
@@ -21,14 +21,25 @@ export default function SettingsPage() {
   const queryClient = useQueryClient();
   const updateLang = useUpdateUserLanguage();
   const logout = useLogoutUser();
-  const [language, setLanguage] = useState(user?.language ?? lang);
+  const [language, setLanguage] = useState<string>(lang);
   const [saved, setSaved] = useState(false);
 
-  if (!authLoading && !user) {
-    navigate("/login");
-    return null;
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/login");
+  }, [authLoading, user, navigate]);
+
+  // Sync language picker when user data loads
+  useEffect(() => {
+    if (user?.language) setLanguage(user.language);
+  }, [user?.language]);
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
   }
-  if (!user) return null;
 
   function handleSaveLanguage() {
     updateLang.mutate(
@@ -71,7 +82,7 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">{t(lang as Lang, "settingsEmail")}</span>
-              <span className="font-medium text-foreground">{user.email}</span>
+              <span className="font-medium text-foreground truncate max-w-[200px]">{user.email}</span>
             </div>
           </div>
         </div>
@@ -83,11 +94,11 @@ export default function SettingsPage() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
             >
-              <option value="en">English</option>
-              <option value="hi">हिंदी (Hindi)</option>
-              <option value="te">తెలుగు (Telugu)</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="hi">🇮🇳 हिंदी (Hindi)</option>
+              <option value="te">🇮🇳 తెలుగు (Telugu)</option>
             </select>
             <Button
               onClick={handleSaveLanguage}
@@ -96,7 +107,7 @@ export default function SettingsPage() {
               className="w-full"
             >
               {saved
-                ? t(lang as Lang, "settingsSaved")
+                ? `✓ ${t(lang as Lang, "settingsSaved")}`
                 : updateLang.isPending
                 ? t(lang as Lang, "settingsSaving")
                 : t(lang as Lang, "settingsSave")}
@@ -133,8 +144,20 @@ export default function SettingsPage() {
 
         {/* Logout */}
         <div className="rounded-2xl border border-border bg-card p-5">
-          <Button variant="destructive" onClick={handleLogout} className="w-full">
-            {t(lang as Lang, "settingsLogout")}
+          <Button
+            variant="destructive"
+            onClick={handleLogout}
+            disabled={logout.isPending}
+            className="w-full"
+          >
+            {logout.isPending ? (
+              <span className="flex items-center gap-2">
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                {lang === "hi" ? "लॉग आउट हो रहे हैं..." : lang === "te" ? "లాగ్ అవుట్ అవుతున్నారు..." : "Signing out…"}
+              </span>
+            ) : (
+              t(lang as Lang, "settingsLogout")
+            )}
           </Button>
         </div>
       </div>
