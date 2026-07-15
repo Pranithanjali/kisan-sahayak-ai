@@ -1,0 +1,110 @@
+The application is working well overall, but I want to improve the remaining features and make it production-ready. Please improve the existing application without breaking any current functionality.
+
+1. Fix Voice Input Completely (Highest Priority)
+
+The microphone animation appears, but voice recognition is still not working reliably.
+
+Please verify the complete voice workflow:
+
+Microphone permission request.
+Detect when the user starts speaking.
+Convert speech to text accurately.
+Display the recognized text in the input field.
+Allow the user to edit the text before sending.
+Send the recognized text to the AI automatically or after confirmation.
+Show a clear listening indicator.
+Show meaningful error messages if speech recognition fails or the browser does not support it.
+
+Test the feature thoroughly on desktop and mobile browsers.
+
+2. Add Image Upload and Camera Support
+
+I want farmers to ask questions using images as well as text.
+
+Please add multiple ways to provide images:
+
+Option 1
+
+Upload an image from the device gallery.
+
+Option 2
+
+Capture a photo directly using the phone or laptop camera.
+
+Option 3
+
+Allow users to paste an image copied from another source.
+
+Option 4
+
+Allow users to provide a public image URL (for example, an image hosted on another website), then download and analyze that image.
+
+Show an image preview before sending.
+
+Allow users to attach both:
+
+an image only, or
+an image together with a text question.
+
+Example:
+
+"What disease is affecting this leaf?"
+
+The AI should analyze the uploaded image together with the question and provide:
+
+Possible disease or pest.
+Confidence level (if available).
+Cause.
+Treatment.
+Prevention methods.
+Recommended fertilizers or pesticides if appropriate.
+
+If image analysis is unavailable for any reason, display a clear message instead of failing silently.
+
+3. Improve Mobile UI
+
+The desktop version looks excellent.
+
+However, the mobile version still looks like a compressed desktop layout.
+
+Please redesign the mobile interface specifically for smartphones.
+
+Improve:
+
+Header.
+Navigation.
+Sidebar.
+Chat screen.
+Chat bubbles.
+Message spacing.
+Buttons.
+Forms.
+Cards.
+FAQ.
+Seasonal tips.
+Market price cards.
+Login and Registration pages.
+
+Requirements:
+
+Large touch-friendly buttons.
+Better spacing.
+Responsive typography.
+Sticky chat input at the bottom.
+Smooth scrolling.
+Optimized layouts for Android and iPhone screens.
+
+The mobile experience should feel like a native mobile application rather than a scaled-down desktop website.
+
+4. Final Verification
+
+After implementing these improvements:
+
+Test image upload.
+Test camera capture.
+Test image URL analysis.
+Test voice input.
+Test mobile responsiveness.
+Ensure all existing features continue working correctly.
+
+Provide a summary of all changes and explain how each new feature works.

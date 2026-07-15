@@ -19,7 +19,7 @@ import {
   SendGuestMessageResponse,
 } from "@workspace/api-zod";
 import { requireAuth, optionalAuth } from "../middlewares/auth";
-import { generateAIResponse, type ChatMessage } from "../lib/ai";
+import { generateAIResponse, analyzeImageWithAI, type ChatMessage } from "../lib/ai";
 
 const router: IRouter = Router();
 
@@ -223,6 +223,45 @@ router.get("/chat/favorites", requireAuth, async (req, res): Promise<void> => {
     conversationTitle: r.conversationTitle,
     createdAt: r.createdAt.toISOString(),
   }))));
+});
+
+router.post("/chat/analyze-image", optionalAuth, async (req, res): Promise<void> => {
+  const { imageBase64, imageUrl, question, language } = req.body as {
+    imageBase64?: string;
+    imageUrl?: string;
+    question?: string;
+    language?: string;
+  };
+
+  if (!imageBase64 && !imageUrl) {
+    res.status(400).json({ error: "Either imageBase64 or imageUrl is required" });
+    return;
+  }
+
+  const lang = language ?? "en";
+  let imageData: string;
+
+  if (imageBase64) {
+    imageData = imageBase64;
+  } else {
+    try {
+      const response = await fetch(imageUrl!);
+      if (!response.ok) {
+        res.status(400).json({ error: `Could not download image: HTTP ${response.status}` });
+        return;
+      }
+      const contentType = response.headers.get("content-type") ?? "image/jpeg";
+      const buffer = await response.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString("base64");
+      imageData = `data:${contentType};base64,${base64}`;
+    } catch (err: any) {
+      res.status(400).json({ error: `Failed to fetch image URL: ${err?.message}` });
+      return;
+    }
+  }
+
+  const content = await analyzeImageWithAI(imageData, question ?? "", lang);
+  res.json({ content, language: lang });
 });
 
 router.post("/chat/guest", optionalAuth, async (req, res): Promise<void> => {

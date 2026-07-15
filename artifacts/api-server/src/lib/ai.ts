@@ -62,6 +62,83 @@ async function getRelevantContext(userMessage: string): Promise<string> {
   return parts.length > 0 ? "DATA: " + parts.join(" | ") : "";
 }
 
+const VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+
+export async function analyzeImageWithAI(
+  imageData: string,
+  question: string,
+  language: string = "en"
+): Promise<string> {
+  if (!GROQ_API_KEY) {
+    return "AI is not configured. Please set GROQ_API_KEY.";
+  }
+
+  const systemPrompt =
+    language === "te"
+      ? "మీరు వ్యవసాయ నిపుణులు. చిత్రాన్ని విశ్లేషించి మొక్కల వ్యాధులు, చీడపురుగులు లేదా సమస్యలను గుర్తించండి. మార్క్‌డౌన్ ఫార్మాట్‌లో జవాబు ఇవ్వండి."
+      : language === "hi"
+      ? "आप एक कृषि विशेषज्ञ हैं। छवि का विश्लेषण करें और पौधों की बीमारियों, कीटों या समस्याओं की पहचान करें। मार्कडाउन फॉर्मेट में उत्तर दें।"
+      : `You are an expert agricultural image analyst. Analyze the image and identify plant diseases, pests, nutrient deficiencies, or crop problems.
+Give a structured report: ## 🔬 Diagnosis, ## 🐛 Symptoms Observed, **Confidence:** High/Medium/Low, ## 💊 Treatment, ## 🛡️ Prevention, ## 💰 Recommended Products.
+Use markdown with bullet points and emojis (🌱🐛💧🌿☀️🔬). Be specific and actionable.`;
+
+  const userText =
+    question ||
+    (language === "te"
+      ? "ఈ మొక్కలో ఏమి సమస్య ఉంది? వివరంగా చెప్పండి."
+      : language === "hi"
+      ? "इस पौधे/फसल में क्या समस्या है? विस्तार से बताएं।"
+      : "What disease, pest, or problem do you see? Provide a detailed analysis.");
+
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: VISION_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "image_url", image_url: { url: imageData } },
+              { type: "text", text: userText },
+            ],
+          },
+        ],
+        max_tokens: 900,
+        temperature: 0.4,
+      }),
+    });
+
+    const data = (await res.json()) as any;
+
+    if (!res.ok) {
+      console.error("[AI Vision] Error:", res.status, JSON.stringify(data));
+      const msg = data?.error?.message ?? `Vision API error (${res.status})`;
+      if (language === "hi") return `चित्र विश्लेषण विफल: ${msg}`;
+      if (language === "te") return `చిత్ర విశ్లేషణ విఫలమైంది: ${msg}`;
+      return `Image analysis failed: ${msg}`;
+    }
+
+    const text: string | undefined = data?.choices?.[0]?.message?.content;
+    if (!text) {
+      if (language === "hi") return "चित्र का विश्लेषण नहीं हो सका।";
+      if (language === "te") return "చిత్రాన్ని విశ్లేషించలేకపోయాం.";
+      return "Could not analyze the image. Please try again.";
+    }
+    return text;
+  } catch (error: any) {
+    console.error("[AI Vision] Fetch error:", error?.message);
+    if (language === "hi") return "चित्र विश्लेषण में त्रुटि।";
+    if (language === "te") return "చిత్ర విశ్లేషణలో లోపం.";
+    return `Image analysis error: ${error?.message ?? "Unknown"}`;
+  }
+}
+
 export interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;

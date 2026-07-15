@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth";
 import { ThemeProvider } from "@/contexts/theme";
 import { LanguageProvider } from "@/contexts/language";
 import Header from "@/components/layout/Header";
+import MobileNav from "@/components/layout/MobileNav";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
 import ChatPage from "@/pages/chat";
@@ -33,7 +34,17 @@ const queryClient = new QueryClient({
 function AppLayout() {
   return (
     <Switch>
-      <Route path="/" component={HomePage} />
+      <Route path="/">
+        {() => (
+          <div className="flex min-h-screen flex-col pb-16 md:pb-0">
+            <Header />
+            <main className="flex-1">
+              <HomePage />
+            </main>
+            <MobileNav />
+          </div>
+        )}
+      </Route>
       <Route path="/chat">
         {() => (
           <div className="flex h-screen flex-col">
@@ -56,7 +67,7 @@ function AppLayout() {
       </Route>
       <Route>
         {() => (
-          <div className="flex min-h-screen flex-col">
+          <div className="flex min-h-screen flex-col pb-16 md:pb-0">
             <Header />
             <main className="flex-1">
               <Switch>
@@ -70,6 +81,7 @@ function AppLayout() {
                 <Route component={NotFound} />
               </Switch>
             </main>
+            <MobileNav />
           </div>
         )}
       </Route>
