@@ -1,0 +1,92 @@
+I tested the latest version of the application. Thank you for fixing the AI integration. However, I found a few remaining issues that need to be resolved.
+
+1. Fix AI Response Formatting
+
+Currently, the AI responses contain Markdown syntax such as **Heading** instead of rendering it properly.
+
+Please:
+
+Render Markdown correctly.
+Convert **Heading** into bold text.
+Support bullet points and numbered lists.
+Display headings with proper formatting instead of showing Markdown symbols.
+Make responses easier to read with proper spacing and typography.
+2. Improve AI Response Presentation
+
+The responses currently look like plain text.
+
+Please improve them by:
+
+Displaying section headings in bold.
+Using bullet points where appropriate.
+Adding relevant emojis or icons where suitable (for example 🌱, 🌾, 💧, 🌿, ☀️, 🐛, 🌧️).
+Making the chat look more like ChatGPT with clean formatting.
+Improve readability without overusing emojis.
+3. Fix Voice Input
+
+The microphone animation starts, but speech is not being recognized.
+
+Current issue:
+
+The microphone appears to be listening.
+My spoken words are not converted into text.
+No transcript appears.
+The message is never sent.
+
+Please debug the complete voice recognition workflow.
+
+Check:
+
+Browser microphone permissions.
+SpeechRecognition/Web Speech API implementation.
+Language configuration.
+Event listeners.
+Start/stop recognition logic.
+Transcript generation.
+Error handling.
+
+After speaking, the recognized text should automatically appear in the chat input so I can edit it before sending.
+
+If speech recognition is unsupported, display a helpful message instead of silently failing.
+
+4. Add Internal Testing and Validation
+
+Please perform a complete review of the application and test every feature.
+
+Verify:
+
+AI chat
+Voice input
+Login
+Registration
+Guest mode
+Language switching
+Market prices
+Seasonal tips
+FAQ
+Database connectivity
+Mobile responsiveness
+
+Identify and fix any hidden bugs before considering the application complete.
+
+5. Improve Overall Polish
+
+Make the application feel production-ready.
+
+Improve:
+
+Loading animations.
+Error messages.
+Empty states.
+Chat scrolling.
+Mobile responsiveness.
+Accessibility.
+Performance.
+
+Remove any remaining placeholder content or unfinished functionality.
+
+Finally, provide a summary of:
+
+What issues were found.
+What fixes were applied.
+Which features were tested successfully.

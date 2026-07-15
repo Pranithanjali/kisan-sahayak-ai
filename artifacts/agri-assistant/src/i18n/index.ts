@@ -63,6 +63,7 @@ interface Translations {
   chatListening: string;
   chatVoiceNotSupported: string;
   chatSpeak: string;
+  chatHint: string;
   // login
   loginTitle: string;
   loginTagline: string;
@@ -201,6 +202,7 @@ const en: Translations = {
   chatListening: "Listening...",
   chatVoiceNotSupported: "Voice input not supported in this browser.",
   chatSpeak: "Speak this response",
+  chatHint: "Enter to send · Shift+Enter for new line",
   loginTitle: "Sign in to Kisan Sahayak AI",
   loginTagline: "Your farm assistant awaits",
   loginEmail: "Email address",
@@ -331,6 +333,7 @@ const hi: Translations = {
   chatListening: "सुन रहा हूं...",
   chatVoiceNotSupported: "इस ब्राउज़र में आवाज इनपुट समर्थित नहीं है।",
   chatSpeak: "यह जवाब सुनें",
+  chatHint: "Enter भेजें · Shift+Enter नई पंक्ति",
   loginTitle: "किसान सहायक AI में लॉगिन करें",
   loginTagline: "आपका कृषि सहायक प्रतीक्षा कर रहा है",
   loginEmail: "ईमेल पता",
@@ -461,6 +464,7 @@ const te: Translations = {
   chatListening: "వింటున్నాను...",
   chatVoiceNotSupported: "ఈ బ్రౌజర్‌లో వాయిస్ ఇన్‌పుట్ మద్దతు లేదు.",
   chatSpeak: "ఈ జవాబు వినండి",
+  chatHint: "Enter పంపండి · Shift+Enter కొత్త వరుస",
   loginTitle: "కిసాన్ సహాయక్ AI లో సైన్ ఇన్",
   loginTagline: "మీ వ్యవసాయ సహాయకుడు వేచి ఉన్నాడు",
   loginEmail: "ఇమెయిల్ చిరునామా",
