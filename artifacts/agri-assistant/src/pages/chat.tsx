@@ -120,53 +120,110 @@ function VoiceButton({ lang, onTranscript, disabled }: {
   disabled?: boolean;
 }) {
   const [listening, setListening] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const recognitionRef = useRef<any>(null);
 
   const startListening = useCallback(() => {
+    setError(null);
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      alert(t(lang as any, "chatVoiceNotSupported"));
+      setError("Voice not supported in this browser. Try Chrome.");
       return;
     }
+
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
     const recognition = new SpeechRecognition();
     recognition.lang = lang === "hi" ? "hi-IN" : lang === "te" ? "te-IN" : "en-IN";
-    recognition.interimResults = false;
+    recognition.interimResults = true;
+    recognition.continuous = false;
     recognition.maxAlternatives = 1;
 
     recognition.onstart = () => setListening(true);
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+
     recognition.onresult = (event: any) => {
-      const transcript = event.results[0]?.[0]?.transcript ?? "";
-      if (transcript) onTranscript(transcript);
+      let finalTranscript = "";
+      let interimTranscript = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalTranscript += result[0].transcript;
+        } else {
+          interimTranscript += result[0].transcript;
+        }
+      }
+      const text = finalTranscript || interimTranscript;
+      if (text) onTranscript(text);
     };
 
-    recognition.start();
-    recognitionRef.current = recognition;
+    recognition.onerror = (event: any) => {
+      setListening(false);
+      recognitionRef.current = null;
+      if (event.error === "not-allowed") {
+        setError("Microphone permission denied. Please allow access in browser settings.");
+      } else if (event.error === "no-speech") {
+        setError("No speech detected. Please try again.");
+      } else if (event.error !== "aborted") {
+        setError(`Voice error: ${event.error}`);
+      }
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    try {
+      recognition.start();
+      recognitionRef.current = recognition;
+    } catch (e: any) {
+      setError("Could not start microphone. Please try again.");
+      setListening(false);
+    }
   }, [lang, onTranscript]);
 
   const stopListening = useCallback(() => {
     recognitionRef.current?.stop();
+    recognitionRef.current = null;
     setListening(false);
   }, []);
 
   return (
-    <button
-      type="button"
-      onClick={listening ? stopListening : startListening}
-      disabled={disabled}
-      title={listening ? t(lang as any, "chatListening") : "Voice input"}
-      className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border transition-colors ${
-        listening
-          ? "border-primary bg-primary/10 text-primary animate-pulse"
-          : "border-input bg-background text-muted-foreground hover:text-foreground hover:border-border"
-      } disabled:opacity-50`}
-    >
-      <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="2">
-        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-        <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-      </svg>
-    </button>
+    <div className="relative flex flex-col items-center">
+      <button
+        type="button"
+        onClick={listening ? stopListening : startListening}
+        disabled={disabled}
+        title={listening ? "Stop listening" : "Voice input"}
+        className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border transition-all ${
+          listening
+            ? "border-red-400 bg-red-50 text-red-500 dark:bg-red-950 dark:border-red-600 scale-110"
+            : "border-input bg-background text-muted-foreground hover:text-foreground hover:border-primary/40"
+        } disabled:opacity-50`}
+      >
+        {listening ? (
+          <span className="flex gap-0.5 items-end h-5">
+            {[0,1,2].map(i => (
+              <span key={i} className="w-1 rounded-full bg-red-500 animate-bounce" style={{height:`${8+i*4}px`, animationDelay:`${i*0.1}s`}} />
+            ))}
+          </span>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="2">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+          </svg>
+        )}
+      </button>
+      {error && (
+        <div className="absolute bottom-12 left-0 w-56 rounded-lg bg-destructive/10 border border-destructive/20 p-2 text-xs text-destructive z-10">
+          {error}
+          <button onClick={() => setError(null)} className="ml-1 underline">dismiss</button>
+        </div>
+      )}
+    </div>
   );
 }
 

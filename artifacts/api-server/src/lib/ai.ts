@@ -1,11 +1,11 @@
 import { db, crops, diseases, seasonalTips } from "@workspace/db";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = "gemini-2.0-flash";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const GROQ_MODEL = "llama-3.1-8b-instant";
+const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-if (!GEMINI_API_KEY) {
-  console.error("[AI] GEMINI_API_KEY is not set. AI responses will fail.");
+if (!GROQ_API_KEY) {
+  console.error("[AI] GROQ_API_KEY is not set. AI responses will fail.");
 }
 
 const SYSTEM_PROMPT_EN = `You are Kisan Sahayak AI, an expert agriculture assistant helping Indian farmers. You have deep knowledge of:
@@ -101,21 +101,13 @@ export interface ChatMessage {
   content: string;
 }
 
-interface GeminiPart {
-  text: string;
-}
-interface GeminiContent {
-  role: "user" | "model";
-  parts: GeminiPart[];
-}
-
 export async function generateAIResponse(
   userMessage: string,
   history: ChatMessage[],
   language: string = "en"
 ): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    return "AI is not configured. Please set the GEMINI_API_KEY environment variable.";
+  if (!GROQ_API_KEY) {
+    return "AI is not configured. Please set the GROQ_API_KEY environment variable.";
   }
 
   const context = await getRelevantContext();
@@ -126,51 +118,47 @@ export async function generateAIResponse(
 
   const fullSystem = context ? `${systemPrompt}\n\n${context}` : systemPrompt;
 
-  const contents: GeminiContent[] = history
-    .filter((m) => m.role === "user" || m.role === "assistant")
-    .slice(-10)
-    .map((m) => ({
-      role: m.role === "assistant" ? "model" : "user",
-      parts: [{ text: m.content }],
-    }));
-
-  contents.push({ role: "user", parts: [{ text: userMessage }] });
-
-  const body = {
-    system_instruction: { parts: [{ text: fullSystem }] },
-    contents,
-    generationConfig: {
-      maxOutputTokens: 1500,
-      temperature: 0.7,
-    },
-  };
+  const messages = [
+    { role: "system", content: fullSystem },
+    ...history
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .slice(-10)
+      .map((m) => ({ role: m.role, content: m.content })),
+    { role: "user", content: userMessage },
+  ];
 
   try {
-    const res = await fetch(GEMINI_URL, {
+    const res = await fetch(GROQ_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages,
+        max_tokens: 1500,
+        temperature: 0.7,
+      }),
     });
 
+    const data = await res.json() as any;
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({})) as any;
-      console.error("[AI] Gemini API error:", res.status, JSON.stringify(err));
+      console.error("[AI] Groq error:", res.status, JSON.stringify(data));
       if (res.status === 429) {
         if (language === "hi") return "AI सेवा अभी व्यस्त है। कृपया कुछ देर बाद पुनः प्रयास करें।";
         if (language === "te") return "AI సేవ ప్రస్తుతం బిజీగా ఉంది. దయచేసి కొద్దిసేపు తర్వాత మళ్ళీ ప్రయత్నించండి.";
         return "AI service is busy. Please try again in a moment.";
       }
-      if (language === "hi") return `त्रुटि: ${err?.error?.message ?? res.status}। कृपया पुनः प्रयास करें।`;
-      if (language === "te") return `లోపం: ${err?.error?.message ?? res.status}. దయచేసి మళ్ళీ ప్రయత్నించండి.`;
-      return `Error from AI (${res.status}): ${err?.error?.message ?? "Unknown error"}`;
+      if (language === "hi") return `त्रुटि: ${data?.error?.message ?? res.status}। कृपया पुनः प्रयास करें।`;
+      if (language === "te") return `లోపం: ${data?.error?.message ?? res.status}. దయచేసి మళ్ళీ ప్రయత్నించండి.`;
+      return `AI error (${res.status}): ${data?.error?.message ?? "Unknown error"}`;
     }
 
-    const data = await res.json() as any;
-    const text: string | undefined = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-
+    const text: string | undefined = data?.choices?.[0]?.message?.content;
     if (!text) {
-      const reason = data?.candidates?.[0]?.finishReason;
-      console.error("[AI] Empty response, finishReason:", reason, JSON.stringify(data));
+      console.error("[AI] Empty Groq response:", JSON.stringify(data));
       if (language === "hi") return "क्षमा करें, उत्तर नहीं मिला। कृपया दोबारा पूछें।";
       if (language === "te") return "క్షమించండి, సమాధానం రాలేదు. దయచేసి మళ్ళీ అడగండి.";
       return "Sorry, no response was generated. Please try again.";
