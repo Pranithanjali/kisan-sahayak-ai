@@ -1,2 +1,3 @@
 - [Vision AI setup](vision-ai.md) — Groq vision model for image analysis, endpoint at /api/chat/analyze-image
 - [Mobile nav pattern](mobile-nav.md) — Bottom nav hidden on /chat routes, pb-16 md:pb-0 on non-chat layouts
+- [Image context pattern](image-context.md) — How image context is preserved for text follow-ups in chat

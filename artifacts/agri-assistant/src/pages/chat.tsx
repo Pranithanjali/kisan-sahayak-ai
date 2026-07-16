@@ -33,6 +33,36 @@ interface ImageAttachment {
   name: string;
 }
 
+interface ImageContext {
+  question: string;   // question the user asked when uploading
+  analysis: string;   // AI's full analysis response
+  thumbnail?: string; // base64 preview shown in banner
+}
+
+/** Build conversation history that includes the image context so text follow-ups work */
+function buildEnrichedHistory(
+  messages: { role: string; content: string }[],
+  imageContext: ImageContext | null
+): { role: string; content: string }[] {
+  const recent = messages.slice(-6);
+  if (!imageContext) return recent;
+
+  const userTurn = imageContext.question
+    ? `I uploaded an image and asked: "${imageContext.question}"`
+    : "I uploaded an image for analysis.";
+
+  // Truncate analysis to ~1200 chars to stay within token budget
+  const analysisTruncated = imageContext.analysis.length > 1200
+    ? imageContext.analysis.slice(0, 1200) + "…"
+    : imageContext.analysis;
+
+  return [
+    { role: "user", content: userTurn },
+    { role: "assistant", content: analysisTruncated },
+    ...recent,
+  ];
+}
+
 // ─── Markdown Renderer ─────────────────────────────────────────────────────────
 
 function MarkdownMessage({ content }: { content: string }) {
@@ -154,6 +184,11 @@ function MessageBubble({
 
 // ─── Voice Button ──────────────────────────────────────────────────────────────
 
+/** Detect if running inside a sandboxed iframe (e.g. Replit preview pane) */
+function isInSandboxedIframe(): boolean {
+  try { return window.self !== window.top; } catch { return true; }
+}
+
 function VoiceButton({ lang, onTranscript, disabled }: {
   lang: string;
   onTranscript: (text: string) => void;
@@ -162,6 +197,7 @@ function VoiceButton({ lang, onTranscript, disabled }: {
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorIsIframe, setErrorIsIframe] = useState(false);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -170,13 +206,14 @@ function VoiceButton({ lang, onTranscript, disabled }: {
 
   const startListening = useCallback(() => {
     setError(null);
+    setErrorIsIframe(false);
     setInterim("");
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      setError("Voice input requires Chrome or Edge browser.");
+      setError("Voice input requires Chrome or Edge. Other browsers are not supported.");
       return;
     }
 
@@ -186,10 +223,10 @@ function VoiceButton({ lang, onTranscript, disabled }: {
     }
 
     const rec = new SpeechRecognition();
-    rec.lang = lang === "hi" ? "hi-IN" : lang === "te" ? "te-IN" : "en-US";
+    rec.lang = lang === "hi" ? "hi-IN" : lang === "te" ? "te-IN" : "en-IN";
     rec.interimResults = true;
     rec.continuous = false;
-    rec.maxAlternatives = 1;
+    rec.maxAlternatives = 3;
 
     rec.onstart = () => { setListening(true); setInterim(""); };
 
@@ -201,8 +238,12 @@ function VoiceButton({ lang, onTranscript, disabled }: {
         if (r.isFinal) final += r[0].transcript;
         else inter += r[0].transcript;
       }
-      if (final) { setInterim(""); onTranscript(final.trim()); }
-      else setInterim(inter);
+      if (final.trim()) {
+        setInterim("");
+        onTranscript(final.trim());
+      } else {
+        setInterim(inter);
+      }
     };
 
     rec.onerror = (event: any) => {
@@ -210,20 +251,36 @@ function VoiceButton({ lang, onTranscript, disabled }: {
       setInterim("");
       recognitionRef.current = null;
       if (event.error === "not-allowed" || event.error === "permission-denied") {
-        setError("Microphone blocked. Click the 🔒 icon in the address bar → allow microphone.");
+        if (isInSandboxedIframe()) {
+          setErrorIsIframe(true);
+          setError("Voice input is blocked in the preview pane. Open the app in a new tab to use it.");
+        } else {
+          setError("Microphone access denied. Click the 🔒 lock icon in your browser's address bar → Site Settings → Allow Microphone.");
+        }
       } else if (event.error === "no-speech") {
-        setError("No speech detected. Speak closer to the mic and try again.");
+        setError("No speech detected. Hold the button, speak clearly, then release.");
       } else if (event.error === "network") {
-        setError("Network error during speech recognition.");
+        setError("Network error — voice recognition needs internet. Check your connection.");
+      } else if (event.error === "audio-capture") {
+        setError("No microphone found. Plug in a mic or check your device settings.");
       } else if (event.error !== "aborted") {
-        setError(`Voice error: ${event.error}. Try again.`);
+        setError(`Voice error (${event.error}). Refresh the page and try again.`);
       }
     };
 
-    rec.onend = () => { setListening(false); setInterim(""); recognitionRef.current = null; };
+    rec.onend = () => {
+      setListening(false);
+      setInterim("");
+      recognitionRef.current = null;
+    };
 
-    try { rec.start(); recognitionRef.current = rec; }
-    catch { setError("Could not start microphone. Refresh and try again."); setListening(false); }
+    try {
+      rec.start();
+      recognitionRef.current = rec;
+    } catch {
+      setError("Could not start microphone. Refresh the page and try again.");
+      setListening(false);
+    }
   }, [lang, onTranscript]);
 
   const stopListening = useCallback(() => {
@@ -239,15 +296,15 @@ function VoiceButton({ lang, onTranscript, disabled }: {
         type="button"
         onClick={listening ? stopListening : startListening}
         disabled={disabled}
-        title={listening ? "Stop listening" : "Voice input"}
+        title={listening ? "Tap to stop" : "Tap to speak"}
         className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border transition-all duration-200 ${
           listening
-            ? "border-red-400 bg-red-50 text-red-500 dark:bg-red-950/50 dark:border-red-700 shadow-sm shadow-red-200"
+            ? "border-red-400 bg-red-50 text-red-500 dark:bg-red-950/50 dark:border-red-700 shadow-md shadow-red-100/50"
             : "border-input bg-background text-muted-foreground hover:text-primary hover:border-primary/40"
         } disabled:opacity-40`}
       >
         {listening ? (
-          <span className="flex gap-0.5 items-end h-4 w-5">
+          <span className="flex gap-[3px] items-end h-4 w-5">
             {[3, 5, 7, 5, 3].map((h, i) => (
               <span key={i} className="w-0.5 rounded-full bg-red-500 animate-bounce" style={{ height: `${h * 2}px`, animationDelay: `${i * 0.08}s` }} />
             ))}
@@ -260,17 +317,40 @@ function VoiceButton({ lang, onTranscript, disabled }: {
         )}
       </button>
 
-      {interim && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-64 rounded-xl bg-card border border-border shadow-lg px-3 py-2 text-xs text-muted-foreground italic z-20 text-center">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse mr-1.5" />
-          {interim}
+      {listening && (
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-56 rounded-xl bg-card border border-border shadow-lg px-3 py-2 text-center z-20">
+          <p className="text-[10px] font-medium text-foreground mb-1 flex items-center justify-center gap-1.5">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+            Listening… speak now
+          </p>
+          {interim && (
+            <p className="text-xs text-muted-foreground italic leading-snug">{interim}</p>
+          )}
         </div>
       )}
 
-      {error && (
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-72 rounded-xl bg-destructive/10 border border-destructive/20 shadow-lg px-3 py-2 text-xs text-destructive z-20">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 underline underline-offset-2 hover:no-underline">dismiss</button>
+      {error && !listening && (
+        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 w-72 rounded-xl bg-card border border-border shadow-xl px-3 py-3 text-xs text-foreground z-20">
+          <p className="font-medium text-destructive mb-1">🎤 Microphone issue</p>
+          <p className="text-muted-foreground leading-relaxed mb-2">{error}</p>
+          <div className="flex items-center gap-2">
+            {errorIsIframe && (
+              <a
+                href={window.location.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-center rounded-lg bg-primary py-1 text-[11px] font-medium text-primary-foreground hover:bg-primary/90"
+              >
+                Open in new tab
+              </a>
+            )}
+            <button
+              onClick={() => { setError(null); setErrorIsIframe(false); }}
+              className="flex-1 text-center rounded-lg border border-border py-1 text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -463,6 +543,45 @@ function ImagePreviewStrip({
   );
 }
 
+// ─── Image Context Banner ──────────────────────────────────────────────────────
+
+function ImageContextBanner({
+  imageContext,
+  onClear,
+}: {
+  imageContext: ImageContext;
+  onClear: () => void;
+}) {
+  return (
+    <div className="mx-3 mb-1.5 flex items-center gap-2 rounded-xl border border-primary/25 bg-primary/8 px-2.5 py-1.5">
+      {imageContext.thumbnail ? (
+        <img src={imageContext.thumbnail} alt="" className="h-7 w-7 rounded-lg object-cover shrink-0 border border-border/50" />
+      ) : (
+        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 text-primary" stroke="currentColor" strokeWidth="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+          </svg>
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-medium text-primary leading-tight">📷 Image context active</p>
+        <p className="text-[10px] text-muted-foreground truncate">
+          {imageContext.question || "Ask follow-up questions about your image"}
+        </p>
+      </div>
+      <button
+        onClick={onClear}
+        title="Clear image context"
+        className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+      >
+        <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5" stroke="currentColor" strokeWidth="2">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 // ─── Chat Input ────────────────────────────────────────────────────────────────
 
 function ChatInput({
@@ -475,6 +594,8 @@ function ChatInput({
   imageAttachment,
   onImageAttach,
   onImageRemove,
+  imageContext,
+  onClearImageContext,
 }: {
   lang: string;
   value: string;
@@ -485,6 +606,8 @@ function ChatInput({
   imageAttachment: ImageAttachment | null;
   onImageAttach: (img: ImageAttachment) => void;
   onImageRemove: () => void;
+  imageContext?: ImageContext | null;
+  onClearImageContext?: () => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -521,18 +644,27 @@ function ChatInput({
 
   const canSend = (value.trim() || imageAttachment) && !disabled;
 
+  const placeholder = imageAttachment
+    ? "Add a question about this image… (optional)"
+    : imageContext
+    ? "Ask a follow-up about your image…"
+    : t(lang as any, "chatPlaceholder");
+
   return (
-    <div className="border-t border-border bg-background/80 backdrop-blur-sm">
+    <div className="border-t border-border bg-background/80 backdrop-blur-sm pt-2">
+      {imageContext && !imageAttachment && onClearImageContext && (
+        <ImageContextBanner imageContext={imageContext} onClear={onClearImageContext} />
+      )}
       {imageAttachment && (
         <ImagePreviewStrip attachment={imageAttachment} onRemove={onImageRemove} />
       )}
-      <div className="flex gap-2 items-end p-2.5 md:p-3">
+      <div className="flex gap-2 items-end px-2.5 pb-1 md:px-3">
         <VoiceButton lang={lang} onTranscript={onChange} disabled={disabled} />
         <ImageUploadButton onImage={onImageAttach} disabled={disabled} />
         <textarea
           ref={textareaRef}
           className="flex-1 resize-none rounded-xl border border-input bg-background px-3 py-2.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring min-h-[44px] max-h-28 leading-relaxed"
-          placeholder={imageAttachment ? "Add a question about this image… (optional)" : t(lang as any, "chatPlaceholder")}
+          placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
@@ -703,6 +835,7 @@ function GuestChat() {
   const [messages, setMessages] = useState<GuestMessage[]>([]);
   const [input, setInput] = useState("");
   const [imageAttachment, setImageAttachment] = useState<ImageAttachment | null>(null);
+  const [imageContext, setImageContext] = useState<ImageContext | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const sendGuestMessage = useSendGuestMessage();
@@ -712,13 +845,23 @@ function GuestChat() {
   }, [messages, isTyping]);
 
   async function handleSend() {
-    const content = input.trim() || (imageAttachment ? "What disease or problem do you see in this image?" : "");
+    const defaultQ = lang === "hi"
+      ? "इस छवि में क्या समस्या है?"
+      : lang === "te"
+      ? "ఈ చిత్రంలో ఏమి సమస్య ఉంది?"
+      : "What disease or problem do you see in this image?";
+
+    const content = input.trim() || (imageAttachment ? defaultQ : "");
     if ((!content && !imageAttachment) || isTyping) return;
 
-    const userMsg: GuestMessage = { role: "user", content, imagePreview: imageAttachment?.dataUrl };
+    const imgToSend = imageAttachment;
+    const userMsg: GuestMessage = {
+      role: "user",
+      content,
+      imagePreview: imgToSend?.dataUrl,
+    };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
-    const imgToSend = imageAttachment;
     setImageAttachment(null);
     setIsTyping(true);
 
@@ -726,9 +869,14 @@ function GuestChat() {
       let aiContent: string;
 
       if (imgToSend) {
+        // Image analysis — also save context for follow-ups
         aiContent = await callAnalyzeImage(imgToSend, content, lang);
+        const thumbnail = imgToSend.dataUrl.startsWith("data:") ? imgToSend.dataUrl : undefined;
+        setImageContext({ question: content, analysis: aiContent, thumbnail });
       } else {
-        const history = messages.map((m) => ({ role: m.role, content: m.content }));
+        // Text message — inject image context into history so AI remembers the image
+        const baseHistory = messages.map((m) => ({ role: m.role, content: m.content }));
+        const history = buildEnrichedHistory(baseHistory, imageContext);
         await new Promise<void>((resolve, reject) => {
           sendGuestMessage.mutate(
             { data: { content, language: lang, history } },
@@ -781,8 +929,14 @@ function GuestChat() {
         onKeyDown={handleKeyDown}
         disabled={isTyping}
         imageAttachment={imageAttachment}
-        onImageAttach={setImageAttachment}
+        onImageAttach={(img) => {
+          setImageAttachment(img);
+          // Uploading a new image replaces context
+          setImageContext(null);
+        }}
         onImageRemove={() => setImageAttachment(null)}
+        imageContext={imageContext}
+        onClearImageContext={() => setImageContext(null)}
       />
     </div>
   );
@@ -796,6 +950,7 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
   const [, navigate] = useLocation();
   const [input, setInput] = useState("");
   const [imageAttachment, setImageAttachment] = useState<ImageAttachment | null>(null);
+  const [imageContext, setImageContext] = useState<ImageContext | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Local overlay for image Q&A (not persisted to DB)
@@ -811,9 +966,10 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
     { query: { enabled: !!conversationId, queryKey: getGetConversationQueryKey(conversationId!) } }
   );
 
-  // Reset local messages when conversation changes
+  // Reset local state when conversation changes
   useEffect(() => {
     setLocalMessages([]);
+    setImageContext(null);
   }, [conversationId]);
 
   useEffect(() => {
@@ -838,7 +994,13 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
   }
 
   async function handleSend() {
-    const content = input.trim() || (imageAttachment ? "What disease or problem do you see in this image?" : "");
+    const defaultQ = lang === "hi"
+      ? "इस छवि में क्या समस्या है?"
+      : lang === "te"
+      ? "ఈ చిత్రంలో ఏమి సమస్య ఉంది?"
+      : "What disease or problem do you see in this image?";
+
+    const content = input.trim() || (imageAttachment ? defaultQ : "");
     if ((!content && !imageAttachment) || isTyping) return;
 
     const imgToSend = imageAttachment;
@@ -847,17 +1009,44 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
     setIsTyping(true);
 
     if (imgToSend) {
-      // Image analysis: show locally, don't go through the regular text AI
+      // Image analysis: show locally with vision model
       const userMsg: GuestMessage = {
         role: "user",
         content,
-        imagePreview: imgToSend.dataUrl.startsWith("http") ? undefined : imgToSend.dataUrl,
+        imagePreview: imgToSend.dataUrl.startsWith("data:") ? imgToSend.dataUrl : undefined,
       };
       setLocalMessages((prev) => [...prev, userMsg]);
 
       try {
         const visionContent = await callAnalyzeImage(imgToSend, content, lang);
         setLocalMessages((prev) => [...prev, { role: "assistant", content: visionContent }]);
+        // Save context so follow-up text questions remember the image
+        const thumbnail = imgToSend.dataUrl.startsWith("data:") ? imgToSend.dataUrl : undefined;
+        setImageContext({ question: content, analysis: visionContent, thumbnail });
+      } catch {
+        setLocalMessages((prev) => [...prev, { role: "assistant", content: t(lang, "chatErrNetwork") }]);
+      } finally {
+        setIsTyping(false);
+      }
+      return;
+    }
+
+    // Text message with active image context → show locally with enriched history
+    if (imageContext) {
+      const userMsg: GuestMessage = { role: "user", content };
+      setLocalMessages((prev) => [...prev, userMsg]);
+
+      try {
+        const allLocal = localMessages.map((m) => ({ role: m.role, content: m.content }));
+        const history = buildEnrichedHistory(allLocal, imageContext);
+        const res = await fetch(`${import.meta.env.BASE_URL}api/chat/guest`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content, language: lang, history }),
+        });
+        const data = await res.json() as { content?: string };
+        const aiContent = data.content ?? t(lang, "chatErrNetwork");
+        setLocalMessages((prev) => [...prev, { role: "assistant", content: aiContent }]);
       } catch {
         setLocalMessages((prev) => [...prev, { role: "assistant", content: t(lang, "chatErrNetwork") }]);
       } finally {
@@ -981,8 +1170,13 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
           onKeyDown={handleKeyDown}
           disabled={isTyping}
           imageAttachment={imageAttachment}
-          onImageAttach={setImageAttachment}
+          onImageAttach={(img) => {
+            setImageAttachment(img);
+            setImageContext(null);
+          }}
           onImageRemove={() => setImageAttachment(null)}
+          imageContext={imageContext}
+          onClearImageContext={() => setImageContext(null)}
         />
       </div>
     </div>
