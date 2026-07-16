@@ -1,1 +1,2 @@
-- [AI Provider Setup](ai-provider.md) — Uses Groq (llama-3.1-8b-instant) via fetch; OpenAI key exhausted, Gemini free-tier had limit:0; Groq free tier works.
+- [Vision AI setup](vision-ai.md) — Groq vision model for image analysis, endpoint at /api/chat/analyze-image
+- [Mobile nav pattern](mobile-nav.md) — Bottom nav hidden on /chat routes, pb-16 md:pb-0 on non-chat layouts

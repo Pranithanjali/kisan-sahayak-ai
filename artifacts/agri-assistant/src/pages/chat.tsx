@@ -798,6 +798,8 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
   const [imageAttachment, setImageAttachment] = useState<ImageAttachment | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Local overlay for image Q&A (not persisted to DB)
+  const [localMessages, setLocalMessages] = useState<GuestMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const createConv = useCreateConversation();
@@ -809,15 +811,20 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
     { query: { enabled: !!conversationId, queryKey: getGetConversationQueryKey(conversationId!) } }
   );
 
+  // Reset local messages when conversation changes
+  useEffect(() => {
+    setLocalMessages([]);
+  }, [conversationId]);
+
   useEffect(() => {
     setTimeout(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, 50);
-  }, [conversation?.messages, isTyping]);
+  }, [conversation?.messages, localMessages, isTyping]);
 
-  async function getOrCreateConversation(): Promise<number> {
+  async function getOrCreateConversation(title: string): Promise<number> {
     if (conversationId) return conversationId;
     return new Promise((resolve, reject) => {
       createConv.mutate(
-        { data: { title: input.slice(0, 50) || "Image Analysis", language: lang } },
+        { data: { title: title.slice(0, 50) || "New Chat", language: lang } },
         {
           onSuccess(data) {
             queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
@@ -839,60 +846,42 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
     setImageAttachment(null);
     setIsTyping(true);
 
-    try {
-      const targetId = await getOrCreateConversation();
+    if (imgToSend) {
+      // Image analysis: show locally, don't go through the regular text AI
+      const userMsg: GuestMessage = {
+        role: "user",
+        content,
+        imagePreview: imgToSend.dataUrl.startsWith("http") ? undefined : imgToSend.dataUrl,
+      };
+      setLocalMessages((prev) => [...prev, userMsg]);
 
-      if (imgToSend) {
-        // Image analysis doesn't persist to DB — use a local approach
-        // We save the user question to the conversation, then analyze
-        await new Promise<void>((resolve, reject) => {
-          sendMessage.mutate(
-            { data: { content, language: lang }, id: targetId },
-            {
-              onSuccess() {
-                queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(targetId) });
-                queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
-                resolve();
-              },
-              onError: reject,
-            }
-          );
-        });
-        // The AI response from sendMessage used text-only; we now replace it with image analysis
-        // For simplicity: call analyze-image to get the real vision response and show it
-        // (The DB will have the text-only response, but the UI shows the vision one)
+      try {
         const visionContent = await callAnalyzeImage(imgToSend, content, lang);
-        // Update the last message in the conversation with vision response
-        queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(targetId) });
-        // As a workaround, we inject the vision response into the conversation via another message
-        await fetch(`${import.meta.env.BASE_URL}api/chat/analyze-image`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...(imgToSend.dataUrl.startsWith("http")
-              ? { imageUrl: imgToSend.dataUrl }
-              : { imageBase64: imgToSend.dataUrl }),
-            question: content,
-            language: lang,
-          }),
-        });
-        // Display the vision content
-        void visionContent;
-      } else {
-        await new Promise<void>((resolve, reject) => {
-          sendMessage.mutate(
-            { data: { content, language: lang }, id: targetId },
-            {
-              onSuccess() {
-                queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(targetId) });
-                queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
-                resolve();
-              },
-              onError: reject,
-            }
-          );
-        });
+        setLocalMessages((prev) => [...prev, { role: "assistant", content: visionContent }]);
+      } catch {
+        setLocalMessages((prev) => [...prev, { role: "assistant", content: t(lang, "chatErrNetwork") }]);
+      } finally {
+        setIsTyping(false);
       }
+      return;
+    }
+
+    // Regular text message — save to DB
+    try {
+      const targetId = await getOrCreateConversation(content);
+      await new Promise<void>((resolve, reject) => {
+        sendMessage.mutate(
+          { data: { content, language: lang }, id: targetId },
+          {
+            onSuccess() {
+              queryClient.invalidateQueries({ queryKey: getGetConversationQueryKey(targetId) });
+              queryClient.invalidateQueries({ queryKey: getListConversationsQueryKey() });
+              resolve();
+            },
+            onError: reject,
+          }
+        );
+      });
     } catch { /* silent */ }
     finally { setIsTyping(false); }
   }
@@ -964,6 +953,21 @@ function AuthenticatedChat({ conversationId }: { conversationId: number | null }
               lang={lang}
               onToggleFav={msg.role === "assistant" ? () => handleToggleFav(msg.id) : undefined}
             />
+          ))}
+          {localMessages.length > 0 && messages.length > 0 && (
+            <div className="mx-3 md:mx-4 my-2 flex items-center gap-2">
+              <div className="flex-1 border-t border-dashed border-border/40" />
+              <span className="text-[10px] text-muted-foreground/50 flex items-center gap-1">
+                <svg viewBox="0 0 24 24" fill="none" className="h-3 w-3" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                </svg>
+                Image analysis
+              </span>
+              <div className="flex-1 border-t border-dashed border-border/40" />
+            </div>
+          )}
+          {localMessages.map((msg, i) => (
+            <MessageBubble key={`local-${i}`} msg={msg} lang={lang} />
           ))}
           {isTyping && <TypingIndicator />}
           <div ref={bottomRef} />
